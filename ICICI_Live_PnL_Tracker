@@ -1,0 +1,109 @@
+import websocket
+from IPython import get_ipython
+from breeze_connect import BreezeConnect
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import streamlit as st
+import plotly.express as px
+
+# For Plotting
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+from matplotlib.animation import FuncAnimation
+
+# To run the code at a specific time
+#import schedule
+import time as t
+from datetime import datetime
+
+#Asking for user inputs
+#api_key = input("Enter your API Key: \n")
+#api_secret = input("Enter your API Secret Key: \n")
+#session_token = input("Enter your session token: \n")
+
+# Connecting to the API
+isec = BreezeConnect(api_key = "2286Ul428FRG3156y9A_17T697826076")
+
+import urllib
+print("https://api.icicidirect.com/apiuser/login?api_key="+urllib.parse.quote_plus("2286Ul428FRG3156y9A_17T697826076"))
+
+isec.generate_session(api_secret = "04fx10454M3619nHD005969M43194B02", session_token = "1155096")
+
+isec.ws_connect()
+
+print("Connected to the API!")
+
+# Callback to receive ticks.
+def on_ticks(ticks):
+    print("Ticks: {}".format(ticks))
+
+# Create a while loop schedule from the time market opens till they close
+updating_pnl = []
+updating_time = []
+total_profit = 0 
+
+#i = 0
+#while i < 50:#datetime.now().hour != 15 and datetime.now().minute != 30: #Continuous till the market closes at 3:30PM
+# Getting Portfolio Holdings
+portfolio_holdings = isec.get_portfolio_holdings(exchange_code="NSE",
+                                                from_date = "2021-07-01T06:00:00.000Z",
+                                                to_date = "2022-04-19T06:00:00:000Z", 
+                                                stock_code = "", 
+                                                portfolio_type = "")
+#---------------------------------------
+# Making a Pandas DataFrame
+df_positions = pd.DataFrame()
+stock_codes = [] 
+unrealized_profit = []
+realized_profit_loss = []
+total_profit = []
+
+for n in range(len(portfolio_holdings["Success"])):
+    stock_tickers = portfolio_holdings['Success'][n]['stock_code']
+    stock_codes.append(stock_tickers)
+
+    stock_unrealized_profit = (float(portfolio_holdings['Success'][n]['current_market_price']) * float(portfolio_holdings['Success'][n]['quantity'])) - (float(portfolio_holdings['Success'][n]['average_price']) * float(portfolio_holdings['Success'][n]['quantity']))
+    unrealized_profit.append(stock_unrealized_profit)
+
+    stock_realized_profit_loss = portfolio_holdings['Success'][n]['booked_profit_loss']
+    if stock_realized_profit_loss != '0':
+        realized_profit_loss.append(float(stock_realized_profit_loss))
+    else:
+        realized_profit_loss.append(0)
+
+    stock_total_profit = unrealized_profit[n] + realized_profit_loss[n]
+    total_profit.append(stock_total_profit)
+
+df_positions['Stock Code'] = stock_codes
+df_positions['Unrealized PnL'] = unrealized_profit
+
+df_positions['Realized PnL'] = realized_profit_loss
+
+df_positions['Total_PnL'] = total_profit
+
+#print(sum(total_profit))
+
+df_positions.head(10)
+
+# -----------------------------------------
+
+updating_time.append(datetime.now().strftime("%H:%M:%S"))
+updating_pnl.append(float(sum(total_profit)))
+
+st.write("""
+
+# Live Profit and Loss Update
+
+""")
+
+st.line_chart(updating_pnl)
+st.experimental_rerun()
+
+t.sleep(5)
+
+# Real Time Portfolio Tracker using Plotly
+# Create figure for plotting
+
+#print(updating_pnl)
+#print(updating_time)
